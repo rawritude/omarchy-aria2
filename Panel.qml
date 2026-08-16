@@ -16,6 +16,11 @@ Panel {
   ipcTarget: "aria2"
   manageIpc: false
 
+  // Required. The bar does not size the slot for us: without these the root has
+  // no implicit size, the button's `anchors.fill: parent` collapses to zero, and
+  // the widget vanishes entirely. This is not circular — BarIconButton's
+  // implicitWidth comes from `fixedWidth: slotSize`, a constant that does not
+  // depend on the parent's actual width.
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -99,45 +104,39 @@ Panel {
     function ui(): void { aria2.openUi() }
   }
 
+  // BarIconButton draws `text` through OpticalGlyph into a fixed square canvas
+  // (Style.bar.iconCanvas, 16px by default) inside a slot of Style.bar.iconSlot
+  // (27px). It is built for one centered glyph. An iconComponent holding a Row
+  // of glyph + speed + count has nowhere to render and the slot never grows to
+  // fit it. omarchy.power has the same problem with its battery percentage and
+  // solves it by putting everything in `text` and widening slotSize, so do that.
+  // nf-md-download. Built from its codepoint rather than pasted as a literal:
+  // a literal sits outside the BMP and does not survive every editor or
+  // pipeline, and when it is silently lost the label becomes "", which makes
+  // BarIconButton.hasVisualContent false and the widget renders as an empty
+  // gap in the bar with no error anywhere.
+  readonly property string downloadGlyph: String.fromCodePoint(0xF01DA)
+
+  readonly property string barLabel: {
+    var glyph = root.downloadGlyph
+    if (aria2.numActive > 0) {
+      var s = root.fmtSpeed(aria2.downloadSpeed)
+      return s !== "" ? s + " " + glyph : glyph
+    }
+    if (aria2.numWaiting > 0) return "+" + aria2.numWaiting + " " + glyph
+    return glyph
+  }
+
   BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    iconComponent: Component {
-      Item {
-        Row {
-          anchors.centerIn: parent
-          spacing: Style.space(4)
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""   // download glyph
-            font.family: root.fontFamily
-            font.pixelSize: Style.space(12)
-            color: aria2.numActive > 0 ? Color.accent
-                 : (aria2.up ? root.barForeground : root.dim)
-          }
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: aria2.numActive > 0 && text !== ""
-            text: root.fmtSpeed(aria2.downloadSpeed)
-            font.family: root.fontFamily
-            font.pixelSize: Style.space(10)
-            color: root.barForeground
-          }
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: aria2.numWaiting > 0
-            text: "+" + aria2.numWaiting
-            font.family: root.fontFamily
-            font.pixelSize: Style.space(10)
-            color: root.dim
-          }
-        }
-      }
-    }
+    text: root.barLabel
+    // Only widen when there is more than the glyph to show, and never in a
+    // vertical bar, where the slot is height-constrained instead.
+    slotSize: Style.bar.iconSlot * (root.barLabel.length > 1 && !vertical ? 2.4 : 1)
+    // Highlight while transferring; the glyph colour is otherwise the bar's.
+    active: aria2.numActive > 0
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) aria2.addFromClipboard()
       else if (buttonCode === Qt.MiddleButton && aria2.manageDaemon) aria2.openUi()
