@@ -26,7 +26,7 @@
       "activePollMs": 1000,
       "idlePollMs": 5000,
       "downPollMs": 60000,
-      "hideWhenIdle": true
+      "hideWhenIdle": false
     },
     "schema": [
       {
@@ -86,8 +86,8 @@
       {
         "key": "hideWhenIdle",
         "type": "boolean",
-        "label": "Hide the bar icon when nothing is downloading",
-        "defaultValue": true
+        "label": "Hide the bar icon when nothing is downloading (needs a keybind to reach the panel)",
+        "defaultValue": false
       }
     ]
   }

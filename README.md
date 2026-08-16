@@ -67,7 +67,12 @@ omarchy-shell aria2 pause
 | `activePollMs` | `1000` | Poll cadence while transferring |
 | `idlePollMs` | `5000` | Poll cadence while the daemon is up but idle |
 | `downPollMs` | `60000` | Heartbeat while the daemon is unreachable |
-| `hideWhenIdle` | `true` | Hide the bar icon when nothing is downloading |
+| `hideWhenIdle` | `false` | Hide the bar icon when nothing is downloading |
+
+> **`hideWhenIdle` has a catch:** while the icon is hidden there is nothing to
+> click, so the panel is only reachable over IPC. Bind a key to
+> `omarchy-shell aria2 toggle` before enabling it. It exists mainly for OLED
+> panels, where a permanent unchanging glyph is a burn-in risk.
 
 Set them with `omarchy bar set`. **Pass `--json` for booleans and numbers**,
 otherwise they are stored as strings:

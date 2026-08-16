@@ -31,11 +31,14 @@ Panel {
     return typeof v === "string" ? v.toLowerCase() === "true" : !!v
   }
 
-  readonly property bool hideWhenIdle: root.boolSetting("hideWhenIdle", true)
+  readonly property bool hideWhenIdle: root.boolSetting("hideWhenIdle", false)
 
-  // Hidden entirely when there is nothing to say, if the user wants it that
-  // way. A permanent static glyph is exactly the sort of unchanging bar
-  // furniture worth avoiding on an OLED panel.
+  // Opt-in, and off by default: a widget that hides itself the moment you
+  // install it just looks broken. It is worth having for OLED panels, where a
+  // permanent static glyph is exactly the sort of unchanging bar furniture that
+  // burns in — but note that while hidden there is nothing to click, so the
+  // panel is only reachable over IPC (`omarchy-shell aria2 toggle`). Bind a key
+  // to that before turning this on.
   visible: !hideWhenIdle || aria2.busy || root.opened
 
   function fmtSpeed(bytesPerSec) {
