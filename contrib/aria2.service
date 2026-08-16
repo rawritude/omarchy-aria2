@@ -9,8 +9,11 @@ Wants=aria2-idle.timer
 
 [Service]
 Type=simple
-# touch, never truncate — this file carries the resume state for anything
-# that was mid-flight, including downloads inherited from the Ubuntu install.
+# The directory may not exist on a fresh install; without this the touch below
+# fails and the unit dies before aria2c ever runs, with no obvious cause.
+ExecStartPre=/usr/bin/mkdir -p %h/.config/aria2
+# touch, never truncate — this file carries the resume state for anything that
+# was mid-flight.
 ExecStartPre=/usr/bin/touch %h/.config/aria2/aria2.session
 ExecStart=/usr/bin/aria2c --conf-path=%h/.config/aria2/aria2.conf
 # aria2c exits with the code of the last *download* error (e.g. 19 = name

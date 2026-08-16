@@ -49,6 +49,11 @@ Item {
   property bool paused: false
   property string lastError: ""
 
+  // Guards against piling up requests when the daemon accepts connections but
+  // stops answering: at a 250ms cadence with a 4s timeout, ~16 could otherwise
+  // be in flight, and a slow old reply could overwrite a newer one.
+  property bool _inFlight: false
+
   readonly property bool busy: up && (numActive > 0 || numWaiting > 0)
 
   readonly property int pollInterval: !up
@@ -65,9 +70,22 @@ Item {
     return ["token:" + svc.rpcSecret].concat(p)
   }
 
+  // POSIX single-quote escaping, so a secret containing shell metacharacters
+  // cannot break out of the command we hand to sh.
+  function shq(value) {
+    return "'" + String(value === undefined || value === null ? "" : value).replace(/'/g, "'\\''") + "'"
+  }
+
   function helperCmd(argv) {
-    // $HOME expanded by sh, so no path knowledge is baked into the plugin.
-    return ["sh", "-c", "$HOME/.local/bin/aria2ctl " + argv]
+    // The helper is told which daemon to talk to, rather than defaulting to
+    // 127.0.0.1:6800 independently. Without this a user who moves aria2 to
+    // another port gets a split brain: the widget polls one daemon while the
+    // helper starts, queues into, and idle-stops a different one.
+    var env = "ARIA2_RPC_HOST=" + shq(rpcHost) +
+              " ARIA2_RPC_PORT=" + shq(rpcPort) +
+              (rpcSecret !== "" ? " ARIA2_RPC_SECRET=" + shq(rpcSecret) : "")
+    // $HOME quoted: an unquoted expansion word-splits on a home path with a space.
+    return ["sh", "-c", env + " \"$HOME\"/.local/bin/aria2ctl " + argv]
   }
 
   function rpc(method, params, onOk) {
@@ -77,10 +95,30 @@ Item {
     req.timeout = 4000
     req.onreadystatechange = function() {
       if (req.readyState !== XMLHttpRequest.DONE) return
+      svc._inFlight = false
+
       if (req.status !== 200) {
-        // A refused connection is the ordinary "daemon is not running" signal
-        // on this design, not an error worth showing anyone.
-        svc.up = false
+        // aria2 answers a rejected call (bad or missing rpc-secret) with an
+        // HTTP 4xx *and* a JSON-RPC error body. Treating every non-200 as "not
+        // running" would report "No aria2 RPC at host:port" for a daemon that
+        // is up and reachable — the exact confusion this plugin claims to
+        // avoid. Status 0 is the genuine cannot-connect case.
+        var errMsg = ""
+        if (req.status !== 0) {
+          try {
+            var errBody = JSON.parse(req.responseText)
+            if (errBody && errBody.error) errMsg = String(errBody.error.message || "rpc error")
+          } catch (parseErr) {
+            errMsg = "HTTP " + req.status
+          }
+        }
+        if (errMsg !== "") {
+          svc.lastError = errMsg
+          svc.up = true          // reachable, just refusing us
+        } else {
+          svc.lastError = ""     // a down daemon is not an error to report
+          svc.up = false
+        }
         svc.numActive = 0; svc.numWaiting = 0; svc.numStopped = 0
         svc.downloadSpeed = 0
         svc.active = []; svc.waiting = []
@@ -102,8 +140,12 @@ Item {
         if (onOk) onOk(body.result)
       } catch (e) {
         svc.lastError = String(e)
+        svc.refreshed()
       }
     }
+    req.ontimeout = function() { svc._inFlight = false }
+    req.onerror = function() { svc._inFlight = false }
+    svc._inFlight = true
     req.send(JSON.stringify({
       jsonrpc: "2.0", id: "omarchy", method: method, params: params || []
     }))
@@ -131,6 +173,20 @@ Item {
       { methodName: "aria2.tellWaiting", params: svc.withToken([0, 32, keys]) }
     ]], function(r) {
       if (!r || r.length < 3) return
+
+      // system.multicall is exempt from the token, so the outer call still
+      // returns 200 when the secret is wrong; the inner calls come back as
+      // fault objects {code, message} rather than [result]. Mapping those to
+      // {}/[] would render a wrong secret as a cheerful "Queue is empty."
+      for (var f = 0; f < r.length; f++) {
+        if (r[f] && !Array.isArray(r[f])) {
+          svc.lastError = String(r[f].message || "rpc error")
+          svc.active = []; svc.waiting = []
+          svc.refreshed()
+          return
+        }
+      }
+
       var stat = (r[0] && r[0][0]) || {}
       svc.numActive = parseInt(stat.numActive || 0)
       svc.numWaiting = parseInt(stat.numWaiting || 0)
@@ -186,11 +242,17 @@ Item {
     }
   }
 
+  // Opening the panel switches us to detail mode, but without this the first
+  // detailed result waits out the current interval — up to downPollMs (60s by
+  // default, and configurable to 600s), so a freshly started daemon would keep
+  // showing "No aria2 RPC at ..." long after it came up.
+  onDetailWantedChanged: if (detailWanted) refresh()
+
   Timer {
     interval: svc.pollInterval
     running: true
     repeat: true
     triggeredOnStart: true
-    onTriggered: svc.refresh()
+    onTriggered: if (!svc._inFlight) svc.refresh()
   }
 }

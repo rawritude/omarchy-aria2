@@ -18,6 +18,10 @@ UNIT_DIR="${HOME}/.config/systemd/user"
 UNITS=(aria2.service aria2-idle.service aria2-idle.timer)
 
 uninstall() {
+  # Stop the timer explicitly. PartOf= only propagates a stop when a stop job
+  # actually runs, so a timer left active by a service that failed to start
+  # would survive this and keep firing a script we are about to delete.
+  systemctl --user stop aria2-idle.timer aria2-idle.service 2>/dev/null || true
   systemctl --user stop aria2.service 2>/dev/null || true
   systemctl --user reset-failed aria2.service 2>/dev/null || true
   local u
@@ -30,6 +34,12 @@ uninstall() {
 install_all() {
   command -v aria2c >/dev/null || {
     echo "error: aria2c not found. Install aria2 first." >&2; exit 1; }
+  # aria2ctl hard-requires both of these for its RPC calls.
+  local dep
+  for dep in curl python3; do
+    command -v "$dep" >/dev/null || {
+      echo "error: $dep not found; aria2ctl requires it." >&2; exit 1; }
+  done
 
   mkdir -p "$BIN_DIR" "$UNIT_DIR"
   install -Dm755 "${HERE}/aria2ctl" "${BIN_DIR}/aria2ctl"
@@ -53,6 +63,9 @@ install_all() {
     *) echo "note: ${BIN_DIR} is not on your PATH; the plugin invokes aria2ctl"
        echo "      by absolute path, so this only affects using it by hand." ;;
   esac
+  [ -f "${HOME}/.config/aria2/aria2.conf" ] || {
+    echo "warning: no ~/.config/aria2/aria2.conf — aria2c will fail to start"
+    echo "         until you create one. See the README for a minimal config."; }
   [ -f "${HOME}/.local/share/ariang/index.html" ] || {
     echo "note: no AriaNg at ~/.local/share/ariang/index.html — the 'open web UI'"
     echo "      action will do nothing until you drop the all-in-one build there."; }

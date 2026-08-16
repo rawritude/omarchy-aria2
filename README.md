@@ -90,10 +90,17 @@ drains:
 omarchy bar set aria2 manageDaemon true --json
 ```
 
-That installs `~/.local/bin/aria2ctl` plus `aria2.service` and `aria2-idle.timer`.
-The service is deliberately **not** enabled at boot. The timer is `PartOf=` the
-service, so it is torn down with it — nothing keeps ticking against a daemon that
-is not there.
+That installs `~/.local/bin/aria2ctl` plus `aria2.service` and `aria2-idle.timer`
+(the helper additionally needs `curl` and `python3`). The service is deliberately
+**not** enabled at boot. The timer is `PartOf=` the service, so it is torn down
+with it, and `idle-check` stops the timer itself if the daemon is not answering —
+`PartOf=` alone would leak it when a start *fails*, since nothing stops a unit
+that never ran.
+
+The widget passes its own `rpcHost`/`rpcPort`/`rpcSecret` to the helper through
+the environment, so the two cannot end up managing different daemons. Run by
+hand, `aria2ctl` falls back to `ARIA2_RPC_*` env vars, then to `rpc-listen-port`
+and `rpc-secret` read from your `aria2.conf`, then to `127.0.0.1:6800`.
 
 It also assumes the single-file [AriaNg all-in-one build](https://github.com/mayswind/AriaNg/releases)
 at `~/.local/share/ariang/index.html`, opened over `file://`. No web server is

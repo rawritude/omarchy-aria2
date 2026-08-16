@@ -107,8 +107,14 @@ Panel {
   // gap in the bar with no error anywhere.
   readonly property string downloadGlyph: String.fromCodePoint(0xF01DA)
 
+  readonly property bool verticalBar: bar ? bar.vertical : false
+
   readonly property string barLabel: {
     var glyph = root.downloadGlyph
+    // In a left/right bar the slot is a narrow column and nothing clips the
+    // label, so a horizontal "1.2 MB/s" would paint straight over the
+    // neighbouring widgets. omarchy.power gates its percentage the same way.
+    if (root.verticalBar) return glyph
     if (aria2.numActive > 0) {
       var s = root.fmtSpeed(aria2.downloadSpeed)
       return s !== "" ? s + " " + glyph : glyph
@@ -207,6 +213,7 @@ Panel {
             wrapMode: Text.WordWrap
             visible: aria2.lastError !== ""
             text: "RPC error: " + aria2.lastError
+            textFormat: Text.PlainText
             font.family: root.fontFamily
             font.pixelSize: Style.space(11)
             color: Color.urgent
@@ -249,6 +256,11 @@ Panel {
                   width: parent.width - Style.space(120)
                   elide: Text.ElideMiddle
                   text: root.nameOf(modelData)
+                  // Daemon-supplied: whoever named the remote file chose this.
+                  // Text defaults to AutoText, which sniffs for markup, so a
+                  // file named "<b><font color=red>" would render as styled
+                  // markup inside the shell process.
+                  textFormat: Text.PlainText
                   font.family: root.fontFamily
                   font.pixelSize: Style.space(11)
                   color: Color.foreground
