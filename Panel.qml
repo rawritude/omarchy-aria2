@@ -36,16 +36,6 @@ Panel {
     return typeof v === "string" ? v.toLowerCase() === "true" : !!v
   }
 
-  readonly property bool hideWhenIdle: root.boolSetting("hideWhenIdle", false)
-
-  // Opt-in, and off by default: a widget that hides itself the moment you
-  // install it just looks broken. It is worth having for OLED panels, where a
-  // permanent static glyph is exactly the sort of unchanging bar furniture that
-  // burns in — but note that while hidden there is nothing to click, so the
-  // panel is only reachable over IPC (`omarchy-shell aria2 toggle`). Bind a key
-  // to that before turning this on.
-  visible: !hideWhenIdle || aria2.busy || root.opened
-
   function fmtSpeed(bytesPerSec) {
     var v = Number(bytesPerSec) || 0
     if (v <= 0) return ""

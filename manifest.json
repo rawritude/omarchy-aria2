@@ -25,8 +25,7 @@
       "manageDaemon": false,
       "activePollMs": 1000,
       "idlePollMs": 5000,
-      "downPollMs": 60000,
-      "hideWhenIdle": false
+      "downPollMs": 60000
     },
     "schema": [
       {
@@ -82,12 +81,6 @@
         "max": 600000,
         "step": 5000,
         "defaultValue": 60000
-      },
-      {
-        "key": "hideWhenIdle",
-        "type": "boolean",
-        "label": "Hide the bar icon when nothing is downloading (needs a keybind to reach the panel)",
-        "defaultValue": false
       }
     ]
   }
