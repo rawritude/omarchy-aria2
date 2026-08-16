@@ -1,0 +1,30 @@
+[Unit]
+Description=aria2 RPC download daemon (on-demand)
+Documentation=man:aria2c(1)
+After=network-online.target
+# Pull in the idle watchdog whenever the daemon runs. The timer is PartOf this
+# unit, so stopping the daemon stops the watchdog with it — no stray timer
+# firing against a daemon that is not there.
+Wants=aria2-idle.timer
+
+[Service]
+Type=simple
+# touch, never truncate — this file carries the resume state for anything
+# that was mid-flight, including downloads inherited from the Ubuntu install.
+ExecStartPre=/usr/bin/touch %h/.config/aria2/aria2.session
+ExecStart=/usr/bin/aria2c --conf-path=%h/.config/aria2/aria2.conf
+# aria2c exits with the code of the last *download* error (e.g. 19 = name
+# resolution failed), not with a verdict on the daemon. Left unhandled, a single
+# dead URL makes a deliberate `systemctl stop` land the unit in "failed" and
+# clutter `systemctl --user --failed`. Codes 1-32 are aria2's documented
+# download-error range, so treat them as a normal exit; a real crash (signal,
+# or anything outside that range) still trips Restart=on-failure.
+# Enumerated, not a "1-32" range — systemd silently discards the range form
+# here (verified: `systemctl show -p SuccessExitStatus` came back empty).
+SuccessExitStatus=1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32
+Restart=on-failure
+RestartSec=2
+
+# Deliberately NOT [Install]/WantedBy — this unit is never enabled at boot.
+# It is started on demand by `aria2ctl up` (directly, or via the bar widget)
+# and stopped again by aria2-idle.timer once the queue drains.

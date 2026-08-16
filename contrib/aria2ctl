@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# aria2ctl — on-demand lifecycle wrapper for the aria2 RPC daemon.
+#
+# Design rule: nothing stays resident. The daemon is not enabled at boot, it is
+# started when something is actually queued, and aria2-idle.timer stops it once
+# the queue drains. AriaNg is the single-file all-in-one build, so the web UI
+# needs no server at all — it opens over file://.
+
+set -euo pipefail
+
+RPC_HOST=127.0.0.1
+RPC_PORT=6800
+RPC_URL="http://${RPC_HOST}:${RPC_PORT}/jsonrpc"
+UNIT=aria2.service
+ARIANG="${HOME}/.local/share/ariang/index.html"
+
+rpc() {
+  # rpc <method> [params-json]  -> raw JSON response on stdout
+  local method="$1" params="${2:-[]}"
+  curl -sS --max-time 5 \
+    -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"aria2ctl\",\"method\":\"${method}\",\"params\":${params}}" \
+    "$RPC_URL"
+}
+
+rpc_up() {
+  # Cheap liveness probe. A refused connect on loopback returns immediately.
+  curl -sS --max-time 1 -o /dev/null \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":"p","method":"aria2.getVersion","params":[]}' \
+    "$RPC_URL" 2>/dev/null
+}
+
+cmd_up() {
+  if rpc_up; then return 0; fi
+  systemctl --user start "$UNIT"
+  # Wait for the RPC to accept connections rather than racing the first call.
+  for _ in $(seq 1 50); do
+    rpc_up && return 0
+    sleep 0.1
+  done
+  echo "aria2ctl: daemon did not come up within 5s" >&2
+  return 1
+}
+
+cmd_down() {
+  systemctl --user stop "$UNIT" 2>/dev/null || true
+}
+
+cmd_add() {
+  [ $# -ge 1 ] || { echo "usage: aria2ctl add <uri> [uri...]" >&2; return 2; }
+  cmd_up
+  local uri
+  for uri in "$@"; do
+    rpc aria2.addUri "[[\"${uri}\"]]" >/dev/null
+  done
+}
+
+cmd_status() {
+  # Compact summary for scripting. Prints nothing but a JSON object.
+  if ! rpc_up; then
+    echo '{"up":false,"numActive":0,"numWaiting":0,"downloadSpeed":0}'
+    return 0
+  fi
+  rpc aria2.getGlobalStat | python3 -c '
+import json,sys
+try:
+    r = json.load(sys.stdin).get("result", {})
+except Exception:
+    r = {}
+print(json.dumps({
+    "up": True,
+    "numActive": int(r.get("numActive", 0)),
+    "numWaiting": int(r.get("numWaiting", 0)),
+    "downloadSpeed": int(r.get("downloadSpeed", 0)),
+}))'
+}
+
+cmd_idle_check() {
+  # Called by aria2-idle.timer. Stop the daemon when nothing is queued.
+  rpc_up || exit 0
+  local s
+  s="$(cmd_status)"
+  local active waiting
+  active="$(printf '%s' "$s" | python3 -c 'import json,sys; print(json.load(sys.stdin)["numActive"])')"
+  waiting="$(printf '%s' "$s" | python3 -c 'import json,sys; print(json.load(sys.stdin)["numWaiting"])')"
+  if [ "$active" -eq 0 ] && [ "$waiting" -eq 0 ]; then
+    logger -t aria2ctl "queue empty — stopping ${UNIT}"
+    cmd_down
+  fi
+}
+
+cmd_ui() {
+  [ -f "$ARIANG" ] || { echo "aria2ctl: AriaNg not found at $ARIANG" >&2; return 1; }
+  cmd_up
+  # Single-file AriaNg build: no HTTP server, opened straight off disk.
+  xdg-open "file://${ARIANG}" >/dev/null 2>&1 &
+}
+
+case "${1:-}" in
+  up)         shift; cmd_up ;;
+  down)       shift; cmd_down ;;
+  add)        shift; cmd_add "$@" ;;
+  status)     shift; cmd_status ;;
+  idle-check) shift; cmd_idle_check ;;
+  ui)         shift; cmd_ui ;;
+  *)
+    cat >&2 <<'EOF'
+usage: aria2ctl <command>
+
+  up           start the daemon if it is not already running
+  down         stop the daemon
+  add <uri>    start the daemon if needed, then queue a URI
+  status       print {"up",numActive,numWaiting,downloadSpeed} as JSON
+  idle-check   stop the daemon if the queue is empty (used by the timer)
+  ui           open AriaNg over file:// (no web server involved)
+EOF
+    exit 2 ;;
+esac

@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "aria2",
+  "name": "Downloads",
+  "version": "1.0.0",
+  "author": "rawritude",
+  "license": "MIT",
+  "description": "aria2 download queue in the Omarchy bar: live speed, active and waiting transfers, pause/resume, and quick-add from the clipboard. Optionally starts the daemon on demand and lets it stop again once the queue drains.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Downloads",
+    "description": "aria2 queue: live speed, transfers, pause/resume, add from clipboard.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "rpcHost": "127.0.0.1",
+      "rpcPort": 6800,
+      "rpcSecret": "",
+      "manageDaemon": false,
+      "activePollMs": 1000,
+      "idlePollMs": 5000,
+      "downPollMs": 60000,
+      "hideWhenIdle": true
+    },
+    "schema": [
+      {
+        "key": "rpcHost",
+        "type": "string",
+        "label": "aria2 RPC host",
+        "defaultValue": "127.0.0.1"
+      },
+      {
+        "key": "rpcPort",
+        "type": "integer",
+        "label": "aria2 RPC port",
+        "min": 1,
+        "max": 65535,
+        "step": 1,
+        "defaultValue": 6800
+      },
+      {
+        "key": "rpcSecret",
+        "type": "string",
+        "label": "RPC secret (leave empty if aria2 has no rpc-secret)",
+        "defaultValue": ""
+      },
+      {
+        "key": "manageDaemon",
+        "type": "boolean",
+        "label": "Start/stop the daemon on demand (requires the aria2ctl helper)",
+        "defaultValue": false
+      },
+      {
+        "key": "activePollMs",
+        "type": "integer",
+        "label": "Poll interval while transferring (ms)",
+        "min": 250,
+        "max": 10000,
+        "step": 250,
+        "defaultValue": 1000
+      },
+      {
+        "key": "idlePollMs",
+        "type": "integer",
+        "label": "Poll interval while daemon idle (ms)",
+        "min": 1000,
+        "max": 60000,
+        "step": 1000,
+        "defaultValue": 5000
+      },
+      {
+        "key": "downPollMs",
+        "type": "integer",
+        "label": "Heartbeat while daemon unreachable (ms)",
+        "min": 5000,
+        "max": 600000,
+        "step": 5000,
+        "defaultValue": 60000
+      },
+      {
+        "key": "hideWhenIdle",
+        "type": "boolean",
+        "label": "Hide the bar icon when nothing is downloading",
+        "defaultValue": true
+      }
+    ]
+  }
+}

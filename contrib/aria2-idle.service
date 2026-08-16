@@ -1,0 +1,8 @@
+[Unit]
+Description=Stop the aria2 daemon when its queue is empty
+# Only meaningful while the daemon is up.
+After=aria2.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/aria2ctl idle-check

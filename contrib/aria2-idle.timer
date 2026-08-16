@@ -1,0 +1,17 @@
+[Unit]
+Description=Idle watchdog for the aria2 daemon
+# Bound to the daemon's lifetime: started with it via Wants=, and torn down
+# with it via PartOf=. Nothing is left ticking once aria2 stops.
+PartOf=aria2.service
+
+[Timer]
+# First check 10 minutes after the daemon starts, then every 5 minutes.
+# A queue that is still empty at check time means the daemon has no reason
+# to be resident.
+OnActiveSec=10min
+OnUnitActiveSec=5min
+AccuracySec=1min
+# No Persistent= — a missed check while logged out is meaningless here.
+
+# No [Install] section on purpose: this timer must never be enabled standalone.
+# Its only valid start path is as a dependency of aria2.service.
