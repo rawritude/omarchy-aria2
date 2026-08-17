@@ -6,6 +6,8 @@ resident when you have nothing downloading.
 
 Built for [Omarchy](https://omarchy.org/) 4 (Quickshell shell).
 
+![The Downloads panel](preview.png)
+
 ## Why aria2
 
 aria2 already does the hard parts — multi-connection transfers, queueing, and

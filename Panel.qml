@@ -206,9 +206,31 @@ Panel {
               color: Color.foreground
             }
 
-            Item { width: Math.max(0, column.width - Style.space(220)); height: 1 }
+            Item { width: Math.max(0, column.width - Style.space(260)); height: 1 }
+
+            // The count is here to disambiguate the speed beside it. That speed
+            // is the global rate — the sum of every row below — but it was
+            // rendered in the same accent colour and near the same size as each
+            // row's own speed, so it read as one more transfer's number rather
+            // than as a total. Naming how many rows to expect makes the figure
+            // beside it obviously a summary of them, and makes a mismatch
+            // between "3 active" and two visible rows something you can see.
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              // numActive comes from getGlobalStat, not from the array feeding
+              // the rows. Deliberate: sourcing it from active.length would make
+              // the count agree with the rows by construction and could never
+              // reveal anything, whereas the daemon's own figure disagreeing
+              // with what is drawn is exactly the thing worth seeing.
+              text: aria2.numActive > 0 ? aria2.numActive + " active ·" : ""
+              font.family: root.fontFamily
+              font.pixelSize: Style.space(11)
+              color: root.dim
+              visible: text !== ""
+            }
 
             Text {
+              anchors.verticalCenter: parent.verticalCenter
               text: root.fmtSpeed(aria2.downloadSpeed)
               font.family: root.fontFamily
               font.pixelSize: Style.space(12)
