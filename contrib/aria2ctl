@@ -45,11 +45,17 @@ RPC_URL="http://${RPC_HOST}:${RPC_PORT}/jsonrpc"
 #   5 rpc error, e.g. unauthorized     6 malformed response
 rpc_call() {
   local method="$1"; shift
-  python3 -c '
-import json, sys, urllib.request, urllib.error
+  # The secret is exported into the child's environment rather than passed as an
+  # argument. /proc/<pid>/cmdline is world-readable, so a secret in argv is
+  # visible to every local user via `ps` for as long as the call runs;
+  # /proc/<pid>/environ is 0400 and readable only by the owner. This mirrors the
+  # widget, which passes it to this script the same way.
+  ARIA2_RPC_SECRET="$RPC_SECRET" python3 -c '
+import json, os, sys, urllib.request, urllib.error
 
-url, secret, method = sys.argv[1], sys.argv[2], sys.argv[3]
-args = sys.argv[4:]
+url, method = sys.argv[1], sys.argv[2]
+secret = os.environ.get("ARIA2_RPC_SECRET", "")
+args = sys.argv[3:]
 
 params = []
 if secret:
@@ -76,7 +82,7 @@ if isinstance(out, dict) and out.get("error"):
     print(out["error"].get("message", "rpc error"), file=sys.stderr)
     sys.exit(5)
 print(json.dumps(out.get("result")))
-' "$RPC_URL" "$RPC_SECRET" "$method" "$@"
+' "$RPC_URL" "$method" "$@"
 }
 
 # 0 = reachable and authorized. Note this is deliberately stricter than "the

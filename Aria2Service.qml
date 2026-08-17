@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 // Talks JSON-RPC to an aria2 daemon.
@@ -70,22 +71,30 @@ Item {
     return ["token:" + svc.rpcSecret].concat(p)
   }
 
-  // POSIX single-quote escaping, so a secret containing shell metacharacters
-  // cannot break out of the command we hand to sh.
-  function shq(value) {
-    return "'" + String(value === undefined || value === null ? "" : value).replace(/'/g, "'\\''") + "'"
-  }
+  readonly property string helperPath: Quickshell.env("HOME") + "/.local/bin/aria2ctl"
 
-  function helperCmd(argv) {
-    // The helper is told which daemon to talk to, rather than defaulting to
-    // 127.0.0.1:6800 independently. Without this a user who moves aria2 to
-    // another port gets a split brain: the widget polls one daemon while the
-    // helper starts, queues into, and idle-stops a different one.
-    var env = "ARIA2_RPC_HOST=" + shq(rpcHost) +
-              " ARIA2_RPC_PORT=" + shq(rpcPort) +
-              (rpcSecret !== "" ? " ARIA2_RPC_SECRET=" + shq(rpcSecret) : "")
-    // $HOME quoted: an unquoted expansion word-splits on a home path with a space.
-    return ["sh", "-c", env + " \"$HOME\"/.local/bin/aria2ctl " + argv]
+  // The RPC secret is passed through the process ENVIRONMENT, never through the
+  // command line.
+  //
+  // /proc/<pid>/cmdline is world-readable, so anything in argv is visible to
+  // every local user for as long as the process lives — `ps` is enough. An
+  // earlier version built `sh -c "ARIA2_RPC_SECRET='...' aria2ctl ..."` with the
+  // value shell-quoted, which stops a secret containing metacharacters from
+  // breaking out of the command but does nothing about it being *readable*.
+  // Quoting solves injection; it is not a disclosure control. /proc/<pid>/environ
+  // is 0400 and readable only by the process owner.
+  //
+  // Dropping the shell also removes the need to quote $HOME and the clipboard
+  // command substitution that used to be spliced into the same string.
+  //
+  // Host and port are passed for a different reason: the helper would otherwise
+  // default to 127.0.0.1:6800 independently, so a user who moved aria2 to
+  // another port would get a split brain — the widget polling one daemon while
+  // the helper starts, queues into and idle-stops a different one.
+  readonly property var helperEnvironment: {
+    var e = { "ARIA2_RPC_HOST": String(rpcHost), "ARIA2_RPC_PORT": String(rpcPort) }
+    if (rpcSecret !== "") e["ARIA2_RPC_SECRET"] = String(rpcSecret)
+    return e
   }
 
   function rpc(method, params, onOk) {
@@ -226,7 +235,7 @@ Item {
     if (u === "") return
     if (!up && manageDaemon) {
       _pendingUri = u
-      lifeProc.command = helperCmd("up")
+      lifeProc.command = [svc.helperPath, "up"]
       lifeProc.running = true
       return
     }
@@ -234,25 +243,36 @@ Item {
   }
 
   function addFromClipboard() {
-    if (svc.manageDaemon) {
-      // Helper path: brings the daemon up first if it is not running.
-      addProc.command = helperCmd("add \"$(wl-paste -n)\"")
-      addProc.running = true
-      return
-    }
-    // Plain path: read the clipboard, hand the URI straight to whatever aria2
-    // is already listening. No daemon management, no helper required.
+    // Always read the clipboard here rather than letting a shell do it. This
+    // used to splice `$(wl-paste -n)` into the helper command string, which put
+    // the clipboard contents — whatever they happen to be — into a world-readable
+    // argv alongside the RPC secret.
     clipProc.running = true
   }
 
-  function openUi()      { if (manageDaemon) { uiProc.command  = helperCmd("ui");   uiProc.running = true } }
-  function startDaemon() { if (manageDaemon) { lifeProc.command = helperCmd("up");   lifeProc.running = true } }
-  function stopDaemon()  { if (manageDaemon) { lifeProc.command = helperCmd("down"); lifeProc.running = true } }
+  function _onClipboard(text) {
+    var u = String(text || "").trim()
+    if (u === "") return
+    if (svc.manageDaemon) {
+      // Helper path: brings the daemon up first if it is not running. The URI is
+      // its own argv element, so no quoting question arises.
+      addProc.command = [svc.helperPath, "add", u]
+      addProc.running = true
+      return
+    }
+    // Plain path: hand the URI straight to whatever aria2 is already listening.
+    svc.addUri(u)
+  }
 
-  Process { id: addProc;  onExited: Qt.callLater(svc.refresh) }
-  Process { id: uiProc }
+  function openUi()      { if (manageDaemon) { uiProc.command  = [svc.helperPath, "ui"];   uiProc.running = true } }
+  function startDaemon() { if (manageDaemon) { lifeProc.command = [svc.helperPath, "up"];   lifeProc.running = true } }
+  function stopDaemon()  { if (manageDaemon) { lifeProc.command = [svc.helperPath, "down"]; lifeProc.running = true } }
+
+  Process { id: addProc; environment: svc.helperEnvironment; onExited: Qt.callLater(svc.refresh) }
+  Process { id: uiProc;  environment: svc.helperEnvironment }
   Process {
     id: lifeProc
+    environment: svc.helperEnvironment
     onExited: {
       if (svc._pendingUri !== "") {
         var u = svc._pendingUri
@@ -269,7 +289,7 @@ Item {
     command: ["wl-paste", "-n"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: svc.addUri(text)
+      onStreamFinished: svc._onClipboard(text)
     }
   }
 

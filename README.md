@@ -145,6 +145,15 @@ which costs one refused loopback connect per minute.
 issues a single small `getGlobalStat` call — enough to render the bar and nothing
 more.
 
+**The RPC secret never touches a command line.** It is passed to the helper, and by the
+helper to its own child, through the process environment. `/proc/<pid>/cmdline` is
+world-readable, so a secret in `argv` is visible to every local user via `ps` for as long as
+the process lives; `/proc/<pid>/environ` is `0400`. Shell-quoting the value — which an
+earlier version did — prevents a secret containing metacharacters from breaking out of the
+command, but quoting is an injection control and not a disclosure control. The widget also
+no longer invokes a shell at all: the helper is executed directly, with each URI as its own
+argument.
+
 **Booleans are parsed defensively.** `omarchy bar set` without `--json` stores
 `"true"` as a string, and a naive truthiness test would read the string `"false"`
 as true. Settings are compared stringwise instead.
