@@ -94,8 +94,18 @@ otherwise they are stored as strings:
 
 ```bash
 omarchy bar set io.github.rawritude.aria2 manageDaemon true --json
-omarchy bar set io.github.rawritude.aria2 rpcSecret hunter2
 ```
+
+**Do not set `rpcSecret` with `omarchy bar set`.** The value would sit in that command's
+arguments, and `/proc/<pid>/cmdline` is world-readable while it runs — plus it lands in your
+shell history. Put it straight into `~/.config/omarchy/shell.json` instead, which is `0600`:
+
+```bash
+$EDITOR ~/.config/omarchy/shell.json      # bar.widgets → this plugin → "rpcSecret"
+```
+
+You only need it at all if aria2's RPC is reachable beyond loopback. With
+`rpc-listen-all=false` there is no secret to store.
 
 ## Optional: on-demand daemon
 
