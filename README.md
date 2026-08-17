@@ -149,6 +149,22 @@ more.
 `"true"` as a string, and a naive truthiness test would read the string `"false"`
 as true. Settings are compared stringwise instead.
 
+## Credits
+
+This plugin is a front-end. The parts that do the actual work are other people's:
+
+- **[aria2](https://aria2.github.io/)** by Tatsuhiro Tsujikawa and contributors (GPL-2.0-or-later)
+  — the download engine. Multi-connection transfers, queueing and resume across restarts are all
+  aria2's; nothing here reimplements any of it. The plugin only reads its JSON-RPC interface and
+  sends the two or three commands worth having in a bar.
+- **[AriaNg](https://ariang.mayswind.net/)** by mayswind (MIT) — the full web UI, opened for
+  anything heavier than a glance. The single-file all-in-one build is used deliberately: it needs
+  no web server, so the panel can open it over `file://` rather than keeping something resident.
+- **[Quickshell](https://git.outfoxxed.me/quickshell/quickshell)** by outfoxxed (LGPL-3.0) — the
+  QML shell framework Omarchy is built on, and a separate project rather than part of it. This
+  plugin is written against its APIs: `IpcHandler` for the keybind surface, `Process` and
+  `StdioCollector` for the few external calls, and `FileView` for config reads.
+
 ## License
 
 MIT
