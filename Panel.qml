@@ -107,6 +107,17 @@ Panel {
   // gap in the bar with no error anywhere.
   readonly property string downloadGlyph: String.fromCodePoint(0xF01DA)
 
+  // Action glyphs, all built from codepoints for the same reason. These happen
+  // to be in the BMP, so a literal would survive — the rule is applied without
+  // exception so there is nothing to remember.
+  readonly property string addGlyph: String.fromCodePoint(0xF067)      // plus
+  readonly property string pauseGlyph: String.fromCodePoint(0xF04C)    // pause
+  readonly property string playGlyph: String.fromCodePoint(0xF04B)     // play
+  readonly property string refreshGlyph: String.fromCodePoint(0xF021)  // refresh
+  readonly property string webGlyph: String.fromCodePoint(0xF0AC)      // globe
+  readonly property string powerGlyph: String.fromCodePoint(0xF011)    // power
+  readonly property string removeGlyph: String.fromCodePoint(0xF00D)   // times
+
   readonly property bool verticalBar: bar ? bar.vertical : false
 
   readonly property string barLabel: {
@@ -253,7 +264,7 @@ Panel {
                 width: parent.width
                 spacing: Style.space(6)
                 Text {
-                  width: parent.width - Style.space(120)
+                  width: parent.width - Style.space(150)   // leaves room for %, speed and the remove button
                   elide: Text.ElideMiddle
                   text: root.nameOf(modelData)
                   // Daemon-supplied: whoever named the remote file chose this.
@@ -272,10 +283,22 @@ Panel {
                   color: root.dim
                 }
                 Text {
+                  anchors.verticalCenter: parent.verticalCenter
                   text: root.fmtSpeed(modelData.downloadSpeed)
                   font.family: root.fontFamily
                   font.pixelSize: Style.space(11)
                   color: Color.accent
+                }
+                // Per-transfer control. aria2.remove(gid) already existed in the
+                // service but nothing called it, so an individual download could
+                // not be touched from the panel at all.
+                PanelActionButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  iconText: root.removeGlyph
+                  tooltipText: "Remove this download"
+                  foreground: root.dim
+                  hoverColor: Color.urgent
+                  onClicked: aria2.remove(String(modelData.gid))
                 }
               }
 
@@ -310,6 +333,56 @@ Panel {
           }
 
           PanelSeparator { width: parent.width }
+
+          // Clickable equivalents of the keys below. The panel was previously
+          // keyboard-only, which made every action invisible unless you read
+          // the hint line — and the bar button's right/middle-click actions
+          // were undiscoverable entirely.
+          Row {
+            width: parent.width
+            spacing: Style.space(6)
+
+            PanelActionButton {
+              iconText: root.addGlyph
+              tooltipText: "Add the clipboard URL"
+              foreground: root.dim
+              hoverColor: Color.foreground
+              onClicked: aria2.addFromClipboard()
+            }
+            PanelActionButton {
+              iconText: aria2.paused ? root.playGlyph : root.pauseGlyph
+              tooltipText: aria2.paused ? "Resume all" : "Pause all"
+              foreground: root.dim
+              hoverColor: Color.foreground
+              onClicked: aria2.paused ? aria2.unpauseAll() : aria2.pauseAll()
+            }
+            PanelActionButton {
+              iconText: root.refreshGlyph
+              tooltipText: "Refresh"
+              foreground: root.dim
+              hoverColor: Color.foreground
+              onClicked: aria2.refresh()
+            }
+            // Both of these only mean anything when this plugin owns the
+            // daemon's lifecycle; shown conditionally for the same reason the
+            // key hints are, so they can never appear and silently do nothing.
+            PanelActionButton {
+              visible: aria2.manageDaemon
+              iconText: root.webGlyph
+              tooltipText: "Open AriaNg"
+              foreground: root.dim
+              hoverColor: Color.foreground
+              onClicked: aria2.openUi()
+            }
+            PanelActionButton {
+              visible: aria2.manageDaemon
+              iconText: root.powerGlyph
+              tooltipText: "Stop the daemon now"
+              foreground: root.dim
+              hoverColor: Color.foreground
+              onClicked: aria2.stopDaemon()
+            }
+          }
 
           Text {
             width: parent.width
