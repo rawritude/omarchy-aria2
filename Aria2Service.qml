@@ -213,6 +213,26 @@ Item {
     rpc("aria2.addUri", withToken([[u]]), function() { refresh() })
   }
 
+  // A URL typed or pasted into the panel.
+  //
+  // Deliberately never routed through the helper's shell path, even when
+  // manageDaemon is on: that would put arbitrary typed text into a command
+  // line. If the daemon is down we start it first and add over JSON-RPC once
+  // it is up, so the URI is only ever a JSON value.
+  property string _pendingUri: ""
+
+  function addUrl(uri) {
+    var u = String(uri || "").trim()
+    if (u === "") return
+    if (!up && manageDaemon) {
+      _pendingUri = u
+      lifeProc.command = helperCmd("up")
+      lifeProc.running = true
+      return
+    }
+    addUri(u)
+  }
+
   function addFromClipboard() {
     if (svc.manageDaemon) {
       // Helper path: brings the daemon up first if it is not running.
@@ -231,7 +251,18 @@ Item {
 
   Process { id: addProc;  onExited: Qt.callLater(svc.refresh) }
   Process { id: uiProc }
-  Process { id: lifeProc; onExited: Qt.callLater(svc.refresh) }
+  Process {
+    id: lifeProc
+    onExited: {
+      if (svc._pendingUri !== "") {
+        var u = svc._pendingUri
+        svc._pendingUri = ""
+        Qt.callLater(function() { svc.addUri(u) })
+      } else {
+        Qt.callLater(svc.refresh)
+      }
+    }
+  }
 
   Process {
     id: clipProc

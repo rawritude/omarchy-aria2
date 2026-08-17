@@ -334,6 +334,24 @@ Panel {
 
           PanelSeparator { width: parent.width }
 
+          // Typed/pasted URL entry. The Ubuntu tray this replaces had an
+          // "Add download..." box; clipboard-only was a regression.
+          TextField {
+            id: urlField
+            width: parent.width
+            placeholderText: "Paste or type a URL, then press Enter"
+            font.family: root.fontFamily
+            font.pixelSize: Style.space(11)
+            foreground: Color.foreground
+            accent: Color.accent
+            horizontalPadding: Style.spacing.controlGap
+            verticalPadding: Style.spacing.controlPaddingY
+            onAccepted: {
+              aria2.addUrl(text)
+              text = ""
+            }
+          }
+
           // Clickable equivalents of the keys below. The panel was previously
           // keyboard-only, which made every action invisible unless you read
           // the hint line — and the bar button's right/middle-click actions
