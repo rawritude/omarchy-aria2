@@ -12,8 +12,8 @@ import qs.Ui
 // cadence — and only a slow heartbeat once the daemon is gone.
 Panel {
   id: root
-  moduleName: "aria2"
-  ipcTarget: "aria2"
+  moduleName: "io.github.rawritude.aria2"
+  ipcTarget: "io.github.rawritude.aria2"
   manageIpc: false
 
   // Required. The bar does not size the slot for us: without these the root has
@@ -84,7 +84,7 @@ Panel {
   }
 
   IpcHandler {
-    target: "aria2"
+    target: "io.github.rawritude.aria2"
     function open(): void { root.open() }
     function close(): void { root.close() }
     function toggle(): void { root.toggle() }

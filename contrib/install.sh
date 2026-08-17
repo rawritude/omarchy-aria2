@@ -56,7 +56,7 @@ install_all() {
   echo "aria2.service is intentionally NOT enabled — it starts on demand."
   echo
   echo "Next:"
-  echo "  omarchy bar set aria2 manageDaemon true --json"
+  echo "  omarchy bar set io.github.rawritude.aria2 manageDaemon true --json"
   echo
   case ":${PATH}:" in
     *":${BIN_DIR}:"*) ;;

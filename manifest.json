@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "aria2",
+  "id": "io.github.rawritude.aria2",
   "name": "Downloads",
   "version": "1.0.0",
   "author": "rawritude",

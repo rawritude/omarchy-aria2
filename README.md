@@ -17,7 +17,7 @@ want in the moment; anything heavier is better done in [AriaNg](https://ariang.m
 
 ```bash
 omarchy plugin add https://github.com/rawritude/omarchy-aria2.git --enable
-omarchy bar move aria2 --section right
+omarchy bar move io.github.rawritude.aria2 --section right
 ```
 
 Plugins land disabled unless you pass `--enable`, so you can read the code first.
@@ -40,6 +40,25 @@ input-file=/home/YOU/.config/aria2/aria2.session
 If you expose the RPC beyond loopback, set an `rpc-secret` and put the same value
 in the plugin's `rpcSecret` setting.
 
+## Removing it
+
+```bash
+omarchy plugin remove io.github.rawritude.aria2
+```
+
+That removes the widget and the plugin, and nothing else — your aria2 config,
+session file and downloads are untouched, and any aria2 you were already running
+keeps running.
+
+If you also installed the optional on-demand layer from `contrib/`:
+
+```bash
+./contrib/install.sh --uninstall
+```
+
+which stops and removes `aria2.service`, `aria2-idle.timer` and `~/.local/bin/aria2ctl`.
+It deliberately leaves `~/.config/aria2/` and your downloads alone.
+
 ## Usage
 
 **Bar:** left-click opens the panel · right-click adds the clipboard URL ·
@@ -51,9 +70,9 @@ middle-click opens AriaNg (when `manageDaemon` is on).
 **IPC**, for keybinds:
 
 ```bash
-omarchy-shell aria2 toggle
-omarchy-shell aria2 add      # queue the clipboard URL
-omarchy-shell aria2 pause
+omarchy-shell io.github.rawritude.aria2 toggle
+omarchy-shell io.github.rawritude.aria2 add      # queue the clipboard URL
+omarchy-shell io.github.rawritude.aria2 pause
 ```
 
 ## Settings
@@ -72,8 +91,8 @@ Set them with `omarchy bar set`. **Pass `--json` for booleans and numbers**,
 otherwise they are stored as strings:
 
 ```bash
-omarchy bar set aria2 manageDaemon true --json
-omarchy bar set aria2 rpcSecret hunter2
+omarchy bar set io.github.rawritude.aria2 manageDaemon true --json
+omarchy bar set io.github.rawritude.aria2 rpcSecret hunter2
 ```
 
 ## Optional: on-demand daemon
@@ -87,7 +106,7 @@ drains:
 
 ```bash
 ./contrib/install.sh
-omarchy bar set aria2 manageDaemon true --json
+omarchy bar set io.github.rawritude.aria2 manageDaemon true --json
 ```
 
 That installs `~/.local/bin/aria2ctl` plus `aria2.service` and `aria2-idle.timer`
