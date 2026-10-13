@@ -145,8 +145,14 @@ Panel {
     // Compare against the glyph rather than testing barLabel.length: U+F01DA is
     // outside the BMP, so JS stores it as a surrogate pair and `.length` is 2
     // for the bare glyph. A `length > 1` test is therefore always true and the
-    // slot sits permanently at 2.4x, padding the icon with dead space.
-    slotSize: Style.bar.iconSlot * (root.barLabel !== root.downloadGlyph && !vertical ? 2.4 : 1)
+    // slot sits permanently widened, padding the icon with dead space.
+    //
+    // Size the slot to the label's painted width (plus the same gutter a plain
+    // icon gets) rather than a fixed multiple: "12.3 MB/s" overflows 2.4x and
+    // paints over the neighbouring widgets.
+    slotSize: root.barLabel !== root.downloadGlyph && !vertical
+      ? Math.max(Style.bar.iconSlot, glyphPaintedWidth + Style.bar.iconSlot - Style.bar.iconCanvas)
+      : Style.bar.iconSlot
     // Highlight while transferring; the glyph colour is otherwise the bar's.
     active: aria2.numActive > 0
     onPressed: function(buttonCode) {
